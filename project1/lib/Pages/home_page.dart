@@ -5,7 +5,10 @@ import 'package:project1/Pages/login.dart';
 import 'package:project1/Pages/profile_page.dart';
 import 'package:project1/Pages/settings_page.dart';
 import 'package:project1/Pages/shop_page.dart';
+import 'package:provider/provider.dart';
 import '../components/bottom_nav_bar.dart';
+import 'package:project1/Pages/create.dart';
+
 
 
 class HomePage extends StatefulWidget {
@@ -119,6 +122,22 @@ class _HomePageState extends State<HomePage> {
                       );
                     },
                   ),
+                ),
+                Padding(
+        padding: const EdgeInsets.only(left: 25.0),
+        child: ListTile(
+          leading: Icon(Icons.edit), // Icon untuk menu manage shoes
+          iconColor: Colors.white,
+          title: Text('Manage Shoes'),
+          textColor: Colors.white,
+          onTap: () {
+            // Navigasi ke halaman manage shoes
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CreateShoePage()),
+            );
+          },
+        ),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 25.0),

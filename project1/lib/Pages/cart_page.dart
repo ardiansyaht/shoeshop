@@ -6,38 +6,46 @@ import '../components/cart_item.dart';
 import '../models/cart.dart';
 
 class CartPage extends StatelessWidget {
-  const CartPage({super.key});
+  const CartPage({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<Cart>(builder :(context, value, child) =>Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 25.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          //heading
-          const Text(
-            'My Cart',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
-          ),
+    final cartProvider = Provider.of<Cart>(context);
 
-          const SizedBox(height: 20),
+    // Memanggil loadCart pada initState
+    WidgetsBinding.instance!.addPostFrameCallback((_) {
+      cartProvider.loadCart();
+    });
 
-          Expanded(child: ListView.builder(
-            itemCount: value.getUserCart().length,
-            itemBuilder: (context, index){
-            //get individual shoe
-            Shoe individualShoe = value.getUserCart()[index];
+    return Consumer<Cart>(
+      builder: (context, value, child) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 25.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Heading
+            const Text(
+              'My Cart',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
+            ),
+            const SizedBox(height: 20),
 
-            //return cart
-            return CartItem(shoe: individualShoe);
+            // List view untuk menampilkan item keranjang
+            Expanded(
+              child: ListView.builder(
+                itemCount: value.getUserCart().length,
+                itemBuilder: (context, index) {
+                  // Dapatkan sepatu individual
+                  Shoe individualShoe = value.getUserCart()[index];
 
-          },
-          ),
-          ),
-        ],
+                  // Kembalikan widget CartItem
+                  return CartItem(shoe: individualShoe);
+                },
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

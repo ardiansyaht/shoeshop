@@ -4,6 +4,7 @@ import 'package:project1/models/shoe.dart';
 import 'package:provider/provider.dart';
 import 'package:project1/models/cart.dart';
 import 'package:project1/components/themenotifier.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ShopPage extends StatefulWidget {
   const ShopPage({Key? key}) : super(key: key);
@@ -26,7 +27,7 @@ class _ShopPageState extends State<ShopPage> {
     backgroundColor = themeNotifier.backgroundColor ?? Colors.transparent;
   }
 
-  // Function to filter shoes based on search query
+  // Fungsi untuk menyaring sepatu berdasarkan pencarian
   void filterShoes(String query, List<Shoe> allShoes) {
     setState(() {
       displayedShoes = allShoes
@@ -38,15 +39,49 @@ class _ShopPageState extends State<ShopPage> {
 
   void addShoeToCart(Shoe shoe) {
     Provider.of<Cart>(context, listen: false).addItemToCart(shoe);
-
-    // alert the user, shoe successfully added
+    addShoeToFirebase(shoe);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Successfully added!"),
-        content: Text("Check your cart"),
+        title: Text("Berhasil ditambahkan!"),
+        content: Text("Periksa keranjang Anda"),
       ),
     );
+  }
+
+  Future<void> addShoeToFirebase(Shoe shoe) async {
+    // Cek apakah sepatu dengan ID yang sama sudah ada di database
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('shoeshop')
+        .where('id', isEqualTo: shoe.id)
+        .get();
+
+    if (querySnapshot.size == 0) {
+      // Jika sepatu dengan ID yang sama tidak ada, tambahkan ke database
+      await FirebaseFirestore.instance.collection('shoeshop').doc(shoe.id).set(shoe.toMap());
+    }
+  }
+
+  Future<List<Shoe>> getShoesFromFirebase() async {
+    QuerySnapshot querySnapshot =
+        await FirebaseFirestore.instance.collection('shoeshop').get();
+    return querySnapshot.docs
+        .map((doc) => Shoe.fromMap(doc.data() as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> updateShoeInFirebase(Shoe updatedShoe) async {
+    await FirebaseFirestore.instance
+        .collection('shoeshop')
+        .doc(updatedShoe.id)
+        .update(updatedShoe.toMap());
+  }
+
+  Future<void> deleteShoeFromFirebase(String shoeId) async {
+    await FirebaseFirestore.instance
+        .collection('shoeshop')
+        .doc(shoeId)
+        .delete();
   }
 
   @override
@@ -56,21 +91,21 @@ class _ShopPageState extends State<ShopPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Shop'),
+        title: Text('Toko'),
         backgroundColor: themeNotifier.backgroundColor,
         actions: [
           IconButton(
             icon: Icon(Icons.search, color: textColor),
             onPressed: () {
-              // Handle search icon pressed
-              // You can open a search dialog or perform any other action here
+              // Menghandle ketika ikon pencarian ditekan
+              // Anda dapat membuka dialog pencarian atau melakukan tindakan lain di sini
             },
           ),
         ],
       ),
       body: Column(
         children: [
-          // Search bar
+          // Bilah pencarian
           Container(
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.symmetric(horizontal: 15),
@@ -81,7 +116,7 @@ class _ShopPageState extends State<ShopPage> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Search TextField
+                // TextField Pencarian
                 Expanded(
                   child: TextField(
                     controller: searchController,
@@ -89,26 +124,27 @@ class _ShopPageState extends State<ShopPage> {
                       filterShoes(query, allShoes);
                     },
                     decoration: InputDecoration(
-                      hintText: 'Search',
+                      hintText: 'Cari',
                       hintStyle: TextStyle(color: Colors.grey),
                     ),
                   ),
                 ),
-                // Search Icon (Moved to AppBar)
+                // Ikon Pencarian (Dipindahkan ke AppBar)
               ],
             ),
           ),
 
-          // Message
+          // Pesan
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 25.0),
             child: Text(
-              'everyone flies.. some fly longer than others',
-              style: TextStyle(color: Colors.grey[600], fontWeight: FontWeight.bold),
+              'semua orang terbang.. beberapa terbang lebih lama dari yang lain',
+              style: TextStyle(
+                  color: Colors.grey[600], fontWeight: FontWeight.bold),
             ),
           ),
 
-          // Hot Picks
+          // Pilihan Terpopuler
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 25.0),
             child: Row(
@@ -116,7 +152,7 @@ class _ShopPageState extends State<ShopPage> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Hot Picks 🔥',
+                  'Pilihan Terpopuler 🔥',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 24,
@@ -124,7 +160,7 @@ class _ShopPageState extends State<ShopPage> {
                   ),
                 ),
                 Text(
-                  'See all',
+                  'Lihat semua',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
@@ -136,25 +172,37 @@ class _ShopPageState extends State<ShopPage> {
           ),
           const SizedBox(height: 10),
 
-          // List of shoes for sale using GridView
+          // Daftar sepatu yang dijual menggunakan GridView
           Expanded(
-            child: GridView.builder(
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 15,
-                mainAxisSpacing: 15,
-              ),
-              itemCount: displayedShoes.isNotEmpty
-                  ? displayedShoes.length
-                  : allShoes.length,
-              itemBuilder: (context, index) {
-                // create shoe
-                Shoe shoe =
-                    displayedShoes.isNotEmpty ? displayedShoes[index] : allShoes[index];
-                return ShoeTile(
-                  shoe: shoe,
-                  onTap: () => addShoeToCart(shoe),
-                );
+            child: FutureBuilder<List<Shoe>>(
+              future: getShoesFromFirebase(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return CircularProgressIndicator();
+                } else if (snapshot.hasError) {
+                  return Text('Error: ${snapshot.error}');
+                } else {
+                  List<Shoe> shoes =
+                      displayedShoes.isNotEmpty ? displayedShoes : snapshot.data!;
+                  return GridView.builder(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 15,
+                      mainAxisSpacing: 15,
+                    ),
+                    itemCount: shoes.length,
+                    itemBuilder: (context, index) {
+                      Shoe shoe = shoes[index];
+                      return ShoeTile(
+                        shoe: shoe,
+                        onTap: () {
+                          addShoeToCart(shoe);
+                          addShoeToFirebase(shoe);
+                        },
+                      );
+                    },
+                  );
+                }
               },
             ),
           ),
